@@ -15,7 +15,6 @@ let bugTurnSpeed = 30;
 let bugs = [];
 let splattedBugs = [];
 
-
 function preload() {
   gameFont = loadFont('media/PressStart2P-Regular.ttf');
   bugSpriteSheet = loadImage('media/Bug.png');
@@ -33,24 +32,61 @@ function setup() {
     bug.addAnimation('final', new Animation(bugSpriteSheet, 0, 98, 32, 32, 1, 5));
     bugs.push(bug);
   }
+
+  crusher = new Tone.BitCrusher(12).toDestination();
+  synth = new Tone.Synth().connect(crusher);
+
+  homeLoop = new Tone.Sequence((time, note) => {
+    synth.triggerAttackRelease(note, 1, time);
+  }, ["C4", "G4", "E4", "B4", "B4", "G4", "A4"], .4);
+  homeLoop.loop = true; 
+
+  gameLoop = new Tone.Sequence((time, note) => {
+    synth.triggerAttackRelease(note, 1, time);
+  }
+  , ["C4", ["G4", "E4"], "D4", ["E4", "D4"], ], .4, .2, .6);
+  gameLoop.loop = true;
+
+  endLoop = new Tone.Sequence((time, note) => {
+    synth.triggerAttackRelease(note, 1, time);
+  }
+  , [["D2"], ["G2"]], .4, .6);
+   
+
+  squished = new Tone.Player("media/squish.mp3").toDestination();
+
+  running = new Tone.Player("media/run.mp3").toDestination();
+
+  buzz = new Tone.Player("media/buzzer.mp3").toDestination();
+  
+
 }
 
 function draw() {
   background(220);
+  
 
   switch (gameState) {
     case GameStates.START:
       textAlign(CENTER, CENTER);
       textSize(15);
       text('Press ENTER key to start', width / 2, height / 2);
+      
       splattedBugs = [];
       score = 0;
       time = 30;
       bugSpeed = 1;
       bugTurnSpeed = 30;
+      if (Tone.Transport !== "started") {
+        Tone.Transport.start();
+      } 
+      endLoop.stop();
+      homeLoop.start(0);
       break;
 
     case GameStates.PLAY:
+      homeLoop.stop();
+      gameLoop.start();
       textSize(15);
       textAlign(LEFT, TOP);
       text('Score: ' + score, 10, 10);
@@ -60,6 +96,8 @@ function draw() {
       time -= deltaTime / 1000;
       if (time <= 0) {
         gameState = GameStates.END;
+        gameLoop.playbackRate = .4, .2, .6;
+        buzz.start(0,.5);
       }
 
       for (let pos of splattedBugs) {
@@ -73,6 +111,11 @@ function draw() {
       break;
 
     case GameStates.END:
+    
+      gameLoop.stop();
+        endLoop.start(2);
+    
+
       textAlign(CENTER, CENTER);
       textSize(15);
       text('TIMES UP!', width / 2, height / 2);
@@ -107,12 +150,14 @@ function mousePressed() {
         score++;
         bugSpeed++;
         bugTurnSpeed--;
+        gameLoop.playbackRate += .1;
+        squished.start(0, .1);
         splattedBugs.push({ x: bug.x, y: bug.y });
         bug.x = Math.random() * (width - 32);
         bug.y = Math.random() * (height - 32);
       }
-    }
   }
+}
 }
 
 class Bug {
